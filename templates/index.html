@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Game Auto Debugger</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        .video-container { flex: 2; background: #000; padding: 10px; border-radius: 8px; }
+        .video-container img { width: 100%; height: auto; display: block; }
+        .controls-container { flex: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: 80vh; overflow-y: auto;}
+        .control-group { margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 4px; }
+        .control-group h3 { margin-top: 0; font-size: 1.1em; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .slider-row { display: flex; align-items: center; margin-bottom: 10px; }
+        .slider-row label { width: 120px; font-weight: bold; }
+        .slider-row input[type=range] { flex: 1; margin: 0 10px; }
+        .slider-row span { width: 40px; text-align: right; }
+        .upload-section { margin-bottom: 20px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background: #0056b3; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #218838; }
+    </style>
+</head>
+<body>
+    <h1>Mini Game Auto Debugger</h1>
+
+    <div class="upload-section">
+        <h3>Upload Video for Debugging</h3>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="video" id="videoInput" accept="video/*" required>
+            <button type="submit" class="btn">Upload and Start</button>
+            <span id="uploadStatus" style="margin-left: 10px; color: green;"></span>
+        </form>
+    </div>
+
+    <div class="container">
+        <div class="video-container">
+            <img id="videoStream" src="{{ url_for('video_feed') }}" alt="Video Stream">
+        </div>
+
+        <div class="controls-container">
+            <button id="exportBtn" class="btn btn-success" style="width: 100%; margin-bottom: 20px;">Export Configuration (JSON)</button>
+
+            <div class="control-group">
+                <h3>Target Green Bar (HSV)</h3>
+                <div class="slider-row"><label>H Min</label><input type="range" id="target_h_min" min="0" max="179" value="{{ config.target_h_min }}"><span id="val_target_h_min">{{ config.target_h_min }}</span></div>
+                <div class="slider-row"><label>S Min</label><input type="range" id="target_s_min" min="0" max="255" value="{{ config.target_s_min }}"><span id="val_target_s_min">{{ config.target_s_min }}</span></div>
+                <div class="slider-row"><label>V Min</label><input type="range" id="target_v_min" min="0" max="255" value="{{ config.target_v_min }}"><span id="val_target_v_min">{{ config.target_v_min }}</span></div>
+                <div class="slider-row"><label>H Max</label><input type="range" id="target_h_max" min="0" max="179" value="{{ config.target_h_max }}"><span id="val_target_h_max">{{ config.target_h_max }}</span></div>
+                <div class="slider-row"><label>S Max</label><input type="range" id="target_s_max" min="0" max="255" value="{{ config.target_s_max }}"><span id="val_target_s_max">{{ config.target_s_max }}</span></div>
+                <div class="slider-row"><label>V Max</label><input type="range" id="target_v_max" min="0" max="255" value="{{ config.target_v_max }}"><span id="val_target_v_max">{{ config.target_v_max }}</span></div>
+            </div>
+
+            <div class="control-group">
+                <h3>Cursor Area (HSV)</h3>
+                <div class="slider-row"><label>H Min</label><input type="range" id="cursor_h_min" min="0" max="179" value="{{ config.cursor_h_min }}"><span id="val_cursor_h_min">{{ config.cursor_h_min }}</span></div>
+                <div class="slider-row"><label>S Min</label><input type="range" id="cursor_s_min" min="0" max="255" value="{{ config.cursor_s_min }}"><span id="val_cursor_s_min">{{ config.cursor_s_min }}</span></div>
+                <div class="slider-row"><label>V Min</label><input type="range" id="cursor_v_min" min="0" max="255" value="{{ config.cursor_v_min }}"><span id="val_cursor_v_min">{{ config.cursor_v_min }}</span></div>
+                <div class="slider-row"><label>H Max</label><input type="range" id="cursor_h_max" min="0" max="179" value="{{ config.cursor_h_max }}"><span id="val_cursor_h_max">{{ config.cursor_h_max }}</span></div>
+                <div class="slider-row"><label>S Max</label><input type="range" id="cursor_s_max" min="0" max="255" value="{{ config.cursor_s_max }}"><span id="val_cursor_s_max">{{ config.cursor_s_max }}</span></div>
+                <div class="slider-row"><label>V Max</label><input type="range" id="cursor_v_max" min="0" max="255" value="{{ config.cursor_v_max }}"><span id="val_cursor_v_max">{{ config.cursor_v_max }}</span></div>
+            </div>
+
+            <div class="control-group">
+                <h3>PID Controller</h3>
+                <div class="slider-row"><label>Kp * 100</label><input type="range" id="kp" min="0" max="1000" value="{{ config.kp }}"><span id="val_kp">{{ config.kp }}</span></div>
+                <div class="slider-row"><label>Kd * 100</label><input type="range" id="kd" min="0" max="1000" value="{{ config.kd }}"><span id="val_kd">{{ config.kd }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Handle Video Upload
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('video', document.getElementById('videoInput').files[0]);
+
+            document.getElementById('uploadStatus').textContent = 'Uploading...';
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    document.getElementById('uploadStatus').textContent = 'Upload complete! Reloading stream...';
+                    // Force reload the image stream
+                    document.getElementById('videoStream').src = "{{ url_for('video_feed') }}?" + new Date().getTime();
+                } else {
+                    document.getElementById('uploadStatus').textContent = 'Error: ' + data.error;
+                    document.getElementById('uploadStatus').style.color = 'red';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('uploadStatus').textContent = 'Upload failed.';
+                document.getElementById('uploadStatus').style.color = 'red';
+            });
+        });
+
+        // Handle Slider Updates
+        const sliders = document.querySelectorAll('input[type="range"]');
+        let updateTimeout;
+
+        sliders.forEach(slider => {
+            slider.addEventListener('input', function() {
+                // Update display value immediately
+                document.getElementById('val_' + this.id).textContent = this.value;
+
+                // Debounce backend update
+                clearTimeout(updateTimeout);
+                updateTimeout = setTimeout(() => {
+                    sendConfigUpdate();
+                }, 100); // 100ms debounce
+            });
+        });
+
+        function sendConfigUpdate() {
+            const config = {};
+            sliders.forEach(slider => {
+                config[slider.id] = parseInt(slider.value);
+            });
+
+            fetch('/update_config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config)
+            })
+            .catch(error => console.error('Error updating config:', error));
+        }
+
+        // Sync config on load
+sendConfigUpdate();
+
+// Handle Export Configuration
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            fetch('/export_config')
+            .then(response => response.json())
+            .then(data => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 4));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href",     dataStr);
+                downloadAnchorNode.setAttribute("download", "bot_config.json");
+                document.body.appendChild(downloadAnchorNode); // required for firefox
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            })
+            .catch(error => console.error('Error exporting config:', error));
+        });
+    </script>
+</body>
+</html>
